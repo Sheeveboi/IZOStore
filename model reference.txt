@@ -1,0 +1,27 @@
+A typical Model object (json):  
+{
+	'create' : {
+		'filename' : String <- specifies the name of the object in the database at creation
+		'childCollections' : String List <- specifies any child collections this object may have
+		'keyGen' : Boolean <- Speficies whether or not to generate an authentication key 
+		'filepaths' : String List <- if keygen is set to True, write a generated key into the specified .auth files 
+	}
+	'read' : {
+		'mode' : Int <- Specifies the read mode of the Model. A '0' value specifies that no authentication is required. A '1' value specifies that only the objects associated authentication key is valid. A '2' value specifies that any key within the specified auth files in the 'filepaths' list are valid 
+		'filepaths' : String List <- will only be used if 'mode' is set to '2'. any keys within the specified auth files will be counted as valid
+	}
+	'write' : { (this is the same schema as 'read' but for writing data)
+		'mode' : Int
+		'filepaths' : String List
+	}
+	'data' : {
+		any json can go here
+	}
+}
+
+what it looks like in the file system:
+
+<filename from 'create'> VV (folder)
+	- watchKeys.auth
+	- data.json
+	- ... any folder created as a result of anything specified within 'childcollections'
