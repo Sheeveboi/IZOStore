@@ -329,9 +329,13 @@ def endSession(d,p,conn,password) :
         izoHttpUtil.sendError(conn,401,"Unauthorized");
         return None;
         
-def get(d,p,conn,auth) :
+def get(d,p,conn,data) :
 
     endpoint = os.path.join(d,p);
+    if ('auth' not in data) :
+        izoHttpUtil.sendError(conn,406,"'auth' not in body");
+        return None;
+    auth = data['auth']
     
     objData = {};
     
@@ -353,11 +357,9 @@ def get(d,p,conn,auth) :
                         model = f.read();
                         model = json.loads(model);
                         
-                        if (not checkAuth("read",d,p,model,auth)) : 
-                            izoHttpUtil.sendError(conn,401,"Unauthorized");
-                            return None;
+                        if (not checkAuth("read",d,p,model,auth)) : return None;
                         
-                        offLimitsKeys = checkKeyAuth("write",d,p,model['dataRules'],auth);
+                        offLimitsKeys = checkKeyAuth("read",d,p,model['dataRules'],auth);
                         
                         def recurseData(dat,parent) :
                             for key in dat:
@@ -372,6 +374,7 @@ def get(d,p,conn,auth) :
                         for o in os.listdir(os.path.join(newEndpoint,obj)) :
                             if ("." not in o) :
                                 addition[o] = r(os.path.join(newEndpoint,obj));
+                                if (addition[o] == None) : addition.pop(o);
         return addition;
 
     if ("data.json" in os.listdir(endpoint)) : 
@@ -390,7 +393,6 @@ def get(d,p,conn,auth) :
             return None;
         
         offLimitsKeys = checkKeyAuth("read",d,p,model['dataRules'],auth);
-        print(offLimitsKeys);
         
         def recurseData(dat,parent) :
             oup = dat.copy();
@@ -500,3 +502,91 @@ def post(d,p,conn,data) :
         izoHttpUtil.sendError(conn,401,"Unauthorized");
         return None;        
         
+def patch(d,p,conn,data,key,value) :
+
+    endpoint = os.path.join(d,p);
+    if ("data.json" not in os.listdir(endpoint)) : 
+        izoHttpUtil.sendError(conn,405,"Not Allowed");
+        return None;
+        
+    if ('auth' not in data) :
+        izoHttpUtil.sendError(conn,406,"'auth' not in body");
+        return None;
+    auth = data['auth']
+    
+    f = open(os.path.join(endpoint,"data.json"),"r");
+    objData = f.read();
+    objData = json.loads(objData);
+    f.close();
+    
+    f = open(os.path.join(d,objData['meta']['derivedFrom'] + ".mdl"),"r");    
+    model = f.read();
+    model = json.loads(model);
+    f.close();
+    
+    if (not checkAuth("write",d,p,model,auth)) : 
+        izoHttpUtil.sendError(conn,401,"Unauthorized");
+        return None;
+    if (key not in model['data']) : 
+        izoHttpUtil.sendError(conn,406,f"'{key}' key not found in object");
+        return None;  
+    offLimitsKeys = checkKeyAuth("write",d,p,model['dataRules'],auth);
+    if (key in offLimitsKeys) : 
+        izoHttpUtil.sendError(conn,401,"Unauthorized");
+        return None;
+    if (type(value) != type(model['data'][key])) :
+        izoHttpUtil.sendError(conn,406,f"'{key}' value does not match type in the object. Expected '{type(data['model'][key])}'");
+        return None;
+    
+    objData['data'][key] = value;
+    
+    f = open(os.path.join(endpoint,"data.json"),"w");
+    f.write(json.dumps(objData));
+    f.close();
+    
+    izoHttpUtil.sendJsonResponse(conn,objData['data']);
+        
+def delete(d,p,conn,data) :
+    
+    endpoint = os.path.join(d,p);
+    if ("data.json" not in os.listdir(endpoint)) : 
+        izoHttpUtil.sendError(conn,405,"Not Allowed");
+        return None;
+        
+    if ('auth' not in data) :
+        izoHttpUtil.sendError(conn,406,"'auth' not in body");
+        return None;
+    auth = data['auth']
+    
+    f = open(os.path.join(endpoint,"data.json"),"r");
+    objData = f.read();
+    objData = json.loads(objData);
+    f.close();
+    
+    f = open(os.path.join(d,objData['meta']['derivedFrom'] + ".mdl"),"r");    
+    model = f.read();
+    model = json.loads(model);
+    f.close();
+    
+    if (not checkAuth("write",d,p,model,auth)) : 
+        izoHttpUtil.sendError(conn,401,"Unauthorized");
+        return None;
+        
+    shutil.rmtree(endpoint); 
+    
+    for authPath in model['create']['keypaths']:
+        try :
+            f = open(os.path.join(d,authPath + ".auth"),"r");
+            k = f.read();
+            k = json.loads(k);
+            f.close();
+            
+            if (objData['meta']['associatedKey'] in k) : k.remove(objData['meta']['associatedKey']);
+            
+            f = open(os.path.join(d,authPath + ".auth"),"w");
+            f.write(json.dumps(k));
+            f.close();
+            
+        except : pass;
+    
+    izoHttpUtil.sendJsonResponse(conn,objData['data']);

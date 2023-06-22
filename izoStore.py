@@ -102,13 +102,19 @@ class Database:
                             go = True;
                         except : izoHttpUtil.sendError(conn,404,"Endpoint does not exist");
                         if (go):
-                            if   (method == "POST") : izoFileUtil.post(this.directory,path,conn,body);
-                            elif (method == "GET")  : 
-                                if ('method' in headers and 'pass' in headers):
-                                    if   (headers['method'] == 'LOGIN')  : izoFileUtil.initSession(this.directory,path,conn,headers['pass']);
-                                    elif (headers['method'] == 'LOGOUT') : izoFileUtil.endSession(this.directory,path,conn,headers['pass']);
-                                elif ('auth' in headers)                 : izoFileUtil.get(this.directory,path,conn,headers['auth']);
+                            if   (method == "GET")  : 
+                                if   ('method' in headers):
+                                    if ('pass' in headers) :
+                                        if   (headers['method'] == 'LOGIN')  : izoFileUtil.initSession(this.directory,path,conn,headers['pass']);
+                                        elif (headers['method'] == 'LOGOUT') : izoFileUtil.endSession(this.directory,path,conn,headers['pass']);
+                                        elif (headers['method'] == 'WATCH')  : 
+                                    else : izoHttpUtil.sendError(conn,406,"Invalid headers");
+                                else : izoFileUtil.get(this.directory,path,conn,body);
+                            elif (method == "POST")   : izoFileUtil.post(this.directory,path,conn,body);
+                            elif (method == "PATCH")  :  
+                                if ('key' in headers and 'value' in headers) : izoFileUtil.patch(this.directory,path,conn,body,headers['key'],headers['value']);
                                 else : izoHttpUtil.sendError(conn,406,"Invalid headers");
+                            elif (method == "DELETE") : izoFileUtil.delete(this.directory,path,conn,body);
                             else :
                                 conn.sendall(izoHttpUtil.formatHTTP("200 OK",headers = {'Content-Type' : 'text/html'}, body = "this is just a test response"));
                                 conn.close();
